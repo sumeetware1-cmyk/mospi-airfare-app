@@ -1,10 +1,11 @@
 from flask import Flask, render_template, jsonify, request
 import pandas as pd
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 
-# Load real domestic airfare dataset
+# Load domestic airfare dataset
 df = pd.read_excel('airfare_domestic.xlsx')
 df['route'] = df['origin'] + '-' + df['destination']
 
@@ -80,45 +81,57 @@ def route_trend():
 
 @app.route('/api/recommend', methods=['POST'])
 def recommend_flights():
-    data = request.json
+    data = request.json or {}
     origin = data.get('origin', 'BOM')
     dest = data.get('destination', 'DEL')
     travel_date_str = data.get('travel_date')
-    seats = max(1, int(data.get('seats', 1)))
     cabin_class = data.get('cabin_class', 'economy')
-    category = data.get('category', 'general')
-    age = int(data.get('age', 25))
+    passengers = data.get('passengers', [])
 
-    # --- Strict DGCA Eligibility & Age Verification Engine ---
-    validation_warning = None
-    discount_pct = 0.0
-    discount_label = "Standard Fare"
+    if not passengers:
+        passengers = [{'age': 25, 'category': 'general'}]
 
-    if category == 'senior':
-        if age < 60:
-            validation_warning = f"Eligibility Conflict: Senior Citizen concession requires age 60+ (Passenger is {age}). Concession revoked."
-            category = 'general'
-        else:
-            discount_pct = 0.20
-            discount_label = "Senior Citizen Concession (20% Off Verified)"
-    elif category == 'student':
-        if age < 12 or age > 26:
-            validation_warning = f"Eligibility Conflict: Student concession applies strictly to ages 12–26 (Passenger is {age}). Reverting to standard fare."
-            category = 'general'
-        else:
-            discount_pct = 0.15
-            discount_label = "Student Special (15% Off + 10kg Extra Baggage)"
-    elif category == 'defense':
-        if age < 18:
-            validation_warning = f"Eligibility Conflict: Armed Forces concessions require active service or dependent status (Passenger is {age}). Reverting to general fare."
-            category = 'general'
-        else:
-            discount_pct = 0.25
-            discount_label = "Armed Forces Concession (25% Total Off Verified)"
+    seat_count = len(passengers)
+    validation_warnings = []
+    evaluated_passengers = []
+
+    for idx, p in enumerate(passengers, start=1):
+        age = int(p.get('age', 25))
+        category = p.get('category', 'general')
+        discount_pct = 0.0
+        label = "Standard Fare"
+
+        if category == 'senior':
+            if age < 60:
+                validation_warnings.append(f"Passenger {idx}: Senior concession requires age 60+ (Passenger is {age}). Concession revoked.")
+                category = 'general'
+            else:
+                discount_pct = 0.20
+                label = "Senior Concession (20% Off)"
+        elif category == 'student':
+            if age < 12 or age > 26:
+                validation_warnings.append(f"Passenger {idx}: Student concession requires age 12-26 (Passenger is {age}). Reverting to standard fare.")
+                category = 'general'
+            else:
+                discount_pct = 0.15
+                label = "Student Special (15% Off)"
+        elif category == 'defense':
+            if age < 18:
+                validation_warnings.append(f"Passenger {idx}: Armed Forces concession requires age 18+ (Passenger is {age}). Reverting to general fare.")
+                category = 'general'
+            else:
+                discount_pct = 0.25
+                label = "Armed Forces Concession (25% Off)"
+
+        evaluated_passengers.append({
+            'passenger_num': idx,
+            'age': age,
+            'discount_pct': discount_pct,
+            'label': label
+        })
 
     target_route = f"{origin}-{dest}"
     matched = df[df['route'] == target_route].copy()
-    
     is_synthesized = False
     route_scale = DISTANCE_FACTORS.get(target_route, 1.05)
 
@@ -128,7 +141,6 @@ def recommend_flights():
         matched = df.copy()
         is_synthesized = True
 
-    # Calculate advance days
     if travel_date_str:
         try:
             travel_date = datetime.strptime(travel_date_str, "%Y-%m-%d")
@@ -149,44 +161,54 @@ def recommend_flights():
     deals = []
     for carrier, group in bracket_df.groupby('airline'):
         base_flight_fare = group['total_fare'].median() * (route_scale if is_synthesized else 1.0)
-        per_person = round(base_flight_fare * cabin_multiplier * (1 - discount_pct), 2)
-        total_fare_all = round(per_person * seats, 2)
+        base_seat_fare = round(base_flight_fare * cabin_multiplier, 2)
         
+        passenger_breakdown = []
+        total_trip_cost = 0.0
+
+        for ep in evaluated_passengers:
+            seat_fare = round(base_seat_fare * (1.0 - ep['discount_pct']), 2)
+            total_trip_cost += seat_fare
+            passenger_breakdown.append({
+                'passenger': f"Passenger {ep['passenger_num']}",
+                'age': ep['age'],
+                'concession': ep['label'],
+                'seat_fare': seat_fare
+            })
+
         flight_num = group['flight_number'].iloc[0]
         segments = int(group['number_of_segments'].iloc[0])
         dep_time = str(group['departure_time'].iloc[0]).split('T')[-1][:5] if 'T' in str(group['departure_time'].iloc[0]) else "08:30"
-        
+
         deals.append({
             'airline': carrier,
             'flight_number': f"{group['marketing_carrier'].iloc[0]}-{flight_num}",
             'segments': 'Non-Stop' if segments == 1 else f"{segments-1} Stop",
             'departure_time': dep_time,
-            'original_fare_per_seat': round(base_flight_fare * cabin_multiplier, 2),
-            'discounted_fare_per_seat': per_person,
-            'total_trip_cost': total_fare_all,
+            'base_fare_per_seat': base_seat_fare,
+            'total_trip_cost': round(total_trip_cost, 2),
+            'breakdown': passenger_breakdown,
             'lead_bracket': closest_bracket
         })
 
     deals.sort(key=lambda x: x['total_trip_cost'])
     best_deal = deals[0] if deals else None
 
-    # AI Recommendation Advisory
     if lead_days <= 3:
         ai_recommendation = (
             f"⚠️ **High Surge Alert:** Booking {lead_days} day(s) before departure. "
             f"You are in the +75% dynamic spot surge window. **{best_deal['airline']}** ({best_deal['flight_number']}) "
-            f"is currently lowest at ₹{best_deal['total_trip_cost']:,.2f} for {seats} seat(s). We recommend locking this in immediately."
+            f"is currently lowest at ₹{best_deal['total_trip_cost']:,.2f} total for {seat_count} seat(s)."
         )
     elif lead_days <= 14:
         ai_recommendation = (
             f"✅ **Balanced Window:** Booking {lead_days} days ahead offers steady rates. "
-            f"**{best_deal['airline']}** provides the optimal value at ₹{best_deal['discounted_fare_per_seat']:,.2f}/seat. "
-            f"{discount_label} applied."
+            f"**{best_deal['airline']}** provides the optimal value at ₹{best_deal['total_trip_cost']:,.2f} total for {seat_count} passenger(s)."
         )
     else:
         ai_recommendation = (
             f"🌟 **Optimal Advance Booking:** At {lead_days} days advance, pricing sits at the baseline index. "
-            f"**{best_deal['airline']}** is the highest-value option."
+            f"**{best_deal['airline']}** is the highest-value option at ₹{best_deal['total_trip_cost']:,.2f}."
         )
 
     return jsonify({
@@ -194,14 +216,14 @@ def recommend_flights():
         'origin_city': CITY_MAP.get(origin, origin),
         'destination_city': CITY_MAP.get(dest, dest),
         'lead_days': lead_days,
-        'seats': seats,
+        'seats': seat_count,
         'cabin_class': cabin_class.capitalize(),
-        'concession_applied': discount_label,
-        'validation_warning': validation_warning,
+        'validation_warnings': validation_warnings,
         'best_deal': best_deal,
         'all_deals': deals,
         'ai_recommendation': ai_recommendation
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
