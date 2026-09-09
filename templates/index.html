@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoSPI | National Airfare Intelligence & Flight Deal Recommender</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-12">
+
+    <!-- Institutional Header -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 px-8 py-4 flex justify-between items-center shadow-md">
+        <div class="flex items-center space-x-4">
+            <div class="bg-blue-600 w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg">✈️</div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight">National Airfare Intelligence & Decision Support Portal</h1>
+                <p class="text-xs text-slate-400">Ministry of Statistics and Programme Implementation (MoSPI) | SIH26056</p>
+            </div>
+        </div>
+        <div class="flex space-x-3 items-center text-xs">
+            <span class="inline-flex items-center px-3 py-1 rounded-full font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span> Scraper: Live (3,680 Flights Audited)
+            </span>
+            <span class="bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700">CPI Base: 2026 = 100</span>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+        <!-- Navigation Mode Tabs -->
+        <div class="flex space-x-4 border-b border-slate-200 pb-3">
+            <button onclick="switchTab('booking')" id="tabBtnBooking" class="px-4 py-2 font-semibold text-sm rounded-lg bg-blue-600 text-white shadow-sm transition">
+                🔍 Flight Booking & AI Deal Finder
+            </button>
+            <button onclick="switchTab('analytics')" id="tabBtnAnalytics" class="px-4 py-2 font-semibold text-sm rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition">
+                📊 MoSPI Inflation & CPI Dashboard
+            </button>
+        </div>
+
+        <!-- SECTION 1: CITIZEN FLIGHT FINDER -->
+        <section id="sectionBooking" class="space-y-6">
+            
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="mb-4">
+                    <h2 class="text-lg font-bold text-slate-900">Search Real Flights & Get AI-Recommended Deals</h2>
+                    <p class="text-xs text-slate-500">Includes DGCA Age & Concession Eligibility Verification and instant booking generation</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                    <!-- From -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">From (Origin)</label>
+                        <select id="originCity" class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 font-medium text-xs">
+                        </select>
+                    </div>
+
+                    <!-- To -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">To (Destination)</label>
+                        <select id="destCity" class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 font-medium text-xs">
+                        </select>
+                    </div>
+
+                    <!-- Date -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Travel Date</label>
+                        <input type="date" id="travelDate" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-blue-500 font-medium text-xs">
+                    </div>
+
+                    <!-- Seats -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Number of Seats</label>
+                        <input type="number" id="seatsCount" min="1" max="9" value="1" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-blue-500 font-medium text-xs">
+                    </div>
+
+                    <!-- Cabin Class -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Cabin Class</label>
+                        <select id="cabinClass" class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 font-medium text-xs">
+                            <option value="economy" selected>Economy Class</option>
+                            <option value="business">Business Class</option>
+                        </select>
+                    </div>
+
+                    <!-- Age -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Passenger Age</label>
+                        <input type="number" id="passengerAge" min="1" max="100" value="18" onchange="autoSuggestConcession()" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-blue-500 font-medium text-xs">
+                    </div>
+
+                    <!-- Special Concession / Offers -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Special Concession / Category</label>
+                        <select id="concessionCategory" class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 font-medium text-xs">
+                            <option value="general" selected>Regular Passenger (No Offer)</option>
+                            <option value="student">Student Concession (Ages 12-26)</option>
+                            <option value="defense">Armed Forces / Defense Personnel (Age 18+)</option>
+                            <option value="senior">Senior Citizen (Age 60+)</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex items-end">
+                        <button onclick="findBestDeals()" id="searchBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-xs flex items-center justify-center space-x-2">
+                            <span>🤖 Find Best AI Deals</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Eligibility Warning Banner -->
+            <div id="warningBox" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-4 shadow-sm">
+                <div class="flex items-start space-x-3">
+                    <span class="text-xl">⚠️</span>
+                    <div>
+                        <h3 class="text-xs font-bold text-amber-900 uppercase">Eligibility Check Notice</h3>
+                        <p id="warningText" class="text-xs text-amber-800 mt-0.5"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Recommendation Box -->
+            <div id="aiBox" class="hidden bg-emerald-50 border border-emerald-300 rounded-xl p-5 shadow-sm">
+                <div class="flex items-start space-x-3">
+                    <span class="text-2xl">💡</span>
+                    <div>
+                        <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wide">AI Recommendation & Dynamic Surge Advisory</h3>
+                        <p id="aiAdviceText" class="text-xs text-emerald-800 mt-1 leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Best Deals Container -->
+            <div id="resultsContainer" class="hidden space-y-4">
+                <h3 class="text-base font-bold text-slate-800">Available Airlines (Ranked by AI Best Deal)</h3>
+                <div id="dealsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
+            </div>
+
+        </section>
+
+        <!-- SECTION 2: MOSPI INFLATION DASHBOARD -->
+        <section id="sectionAnalytics" class="hidden space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Airfare CPI Sub-Index</p>
+                    <div class="flex items-baseline space-x-2 mt-2">
+                        <span id="cpi-index" class="text-3xl font-bold text-slate-900">--</span>
+                        <span id="inflation-tag" class="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">--</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-2">Relative to 30-day baseline</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">1-Day Spot Mean Fare</p>
+                    <p id="spot-fare" class="text-3xl font-bold text-slate-900 mt-2">--</p>
+                    <p class="text-xs text-slate-400 mt-2">Last-minute traveler price</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Baseline Mean Fare</p>
+                    <p id="base-fare" class="text-3xl font-bold text-slate-900 mt-2">--</p>
+                    <p class="text-xs text-slate-400 mt-2">30-45 day advance benchmark</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Scraped Records Audited</p>
+                    <p id="records-count" class="text-3xl font-bold text-slate-900 mt-2">--</p>
+                    <p class="text-xs text-emerald-600 font-medium mt-2">100% Ingestion Integrity</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 class="text-base font-semibold text-slate-900">Dynamic Pricing Surge Decay Curve</h2>
+                            <p class="text-xs text-slate-500">How fares accelerate as departure date approaches</p>
+                        </div>
+                        <select id="route-select" onchange="updateRouteChart()" class="text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50 font-medium">
+                        </select>
+                    </div>
+                    <div class="h-72">
+                        <canvas id="routeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-base font-semibold text-slate-900">Carrier Fare Distribution</h2>
+                    <p class="text-xs text-slate-500 mb-4">Average ticket pricing across Indian carriers</p>
+                    <div class="h-72 flex items-center justify-center">
+                        <canvas id="airlineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOOKING CONFIRMATION MODAL -->
+    <div id="bookingModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative">
+            <div class="flex justify-between items-start border-b border-slate-100 pb-4">
+                <div>
+                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">✓ TICKET RESERVED</span>
+                    <h3 class="text-lg font-bold text-slate-900 mt-2">DGCA Electronic Boarding Pass</h3>
+                    <p class="text-xs text-slate-400">MoSPI Simulated Travel Reservation Engine</p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+            </div>
+
+            <div class="mt-4 space-y-3 text-xs">
+                <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <div>
+                        <span class="text-slate-400 block font-medium">PNR / Booking Ref</span>
+                        <span id="modalPnr" class="font-mono font-bold text-sm text-slate-800">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block font-medium">Flight / Carrier</span>
+                        <span id="modalFlight" class="font-bold text-sm text-slate-800">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block font-medium">Route Corridor</span>
+                        <span id="modalRoute" class="font-semibold text-slate-800">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block font-medium">Departure Date & Time</span>
+                        <span id="modalTime" class="font-semibold text-slate-800">--</span>
+                    </div>
+                </div>
+
+                <div class="border-t border-dashed border-slate-200 pt-3 flex justify-between">
+                    <span class="text-slate-500">Cabin Class:</span>
+                    <span id="modalCabin" class="font-semibold text-slate-800">--</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Total Seats Booked:</span>
+                    <span id="modalSeats" class="font-semibold text-slate-800">--</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Applied Concession:</span>
+                    <span id="modalConcession" class="font-semibold text-emerald-600">--</span>
+                </div>
+                <div class="border-t border-slate-200 pt-3 flex justify-between items-baseline">
+                    <span class="text-sm font-bold text-slate-800">Total Fare Paid (All Taxes):</span>
+                    <span id="modalTotal" class="text-xl font-extrabold text-blue-600">₹--</span>
+                </div>
+            </div>
+
+            <div class="mt-6 flex space-x-3">
+                <button onclick="window.print()" class="w-1/2 py-2 text-xs border border-slate-300 rounded-lg font-semibold hover:bg-slate-50 transition">
+                    🖨️ Print e-Ticket
+                </button>
+                <button onclick="closeModal()" class="w-1/2 py-2 text-xs bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let routeChartInstance = null;
+        let airlineChartInstance = null;
+        let currentSearchResponse = null;
+
+        const today = new Date();
+        today.setDate(today.getDate() + 7);
+        document.getElementById('travelDate').value = today.toISOString().split('T')[0];
+
+        function autoSuggestConcession() {
+            const age = parseInt(document.getElementById('passengerAge').value) || 25;
+            const categorySelect = document.getElementById('concessionCategory');
+
+            if (age >= 60) {
+                categorySelect.value = 'senior';
+            } else if (age >= 12 && age <= 26 && categorySelect.value === 'general') {
+                categorySelect.value = 'student';
+            }
+        }
+
+        function switchTab(tab) {
+            const bookingSec = document.getElementById('sectionBooking');
+            const analyticsSec = document.getElementById('sectionAnalytics');
+            const btnB = document.getElementById('tabBtnBooking');
+            const btnA = document.getElementById('tabBtnAnalytics');
+
+            if (tab === 'booking') {
+                bookingSec.classList.remove('hidden');
+                analyticsSec.classList.add('hidden');
+                btnB.className = "px-4 py-2 font-semibold text-sm rounded-lg bg-blue-600 text-white shadow-sm transition";
+                btnA.className = "px-4 py-2 font-semibold text-sm rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition";
+            } else {
+                analyticsSec.classList.remove('hidden');
+                bookingSec.classList.add('hidden');
+                btnA.className = "px-4 py-2 font-semibold text-sm rounded-lg bg-blue-600 text-white shadow-sm transition";
+                btnB.className = "px-4 py-2 font-semibold text-sm rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition";
+            }
+        }
+
+        async function populateAirports() {
+            const res = await fetch('/api/airports');
+            const airports = await res.json();
+            const originSel = document.getElementById('originCity');
+            const destSel = document.getElementById('destCity');
+
+            originSel.innerHTML = '';
+            destSel.innerHTML = '';
+
+            Object.entries(airports).forEach(([code, name]) => {
+                const opt1 = document.createElement('option');
+                opt1.value = code;
+                opt1.innerText = name;
+                if (code === 'BOM') opt1.selected = true;
+                originSel.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = code;
+                opt2.innerText = name;
+                if (code === 'DEL') opt2.selected = true;
+                destSel.appendChild(opt2);
+            });
+        }
+
+        async function findBestDeals() {
+            const btn = document.getElementById('searchBtn');
+            btn.innerHTML = `<span>⏳ Searching Live Inventory...</span>`;
+            btn.disabled = true;
+
+            const payload = {
+                origin: document.getElementById('originCity').value,
+                destination: document.getElementById('destCity').value,
+                travel_date: document.getElementById('travelDate').value,
+                seats: document.getElementById('seatsCount').value,
+                cabin_class: document.getElementById('cabinClass').value,
+                age: document.getElementById('passengerAge').value,
+                category: document.getElementById('concessionCategory').value
+            };
+
+            const res = await fetch('/api/recommend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            currentSearchResponse = data;
+
+            // Handle Eligibility Warnings
+            const warningBox = document.getElementById('warningBox');
+            const warningText = document.getElementById('warningText');
+            if (data.validation_warning) {
+                warningText.innerText = data.validation_warning;
+                warningBox.classList.remove('hidden');
+            } else {
+                warningBox.classList.add('hidden');
+            }
+
+            // Display AI Alert Box
+            const aiBox = document.getElementById('aiBox');
+            const aiText = document.getElementById('aiAdviceText');
+            aiText.innerHTML = data.ai_recommendation.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            aiBox.classList.remove('hidden');
+
+            // Render Cards
+            const container = document.getElementById('resultsContainer');
+            const grid = document.getElementById('dealsGrid');
+            grid.innerHTML = '';
+
+            data.all_deals.forEach((deal, idx) => {
+                const isBest = idx === 0;
+                const card = document.createElement('div');
+                card.className = `p-5 rounded-xl border ${isBest ? 'border-emerald-500 ring-2 ring-emerald-400/30 bg-white' : 'border-slate-200 bg-white'} shadow-sm relative flex flex-col justify-between`;
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded ${isBest ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}">
+                                ${isBest ? '🏆 AI TOP DEAL' : deal.airline}
+                            </span>
+                            <span class="text-xs font-semibold text-slate-400">${deal.segments}</span>
+                        </div>
+                        <h4 class="font-bold text-base text-slate-900">${deal.airline} <span class="text-xs text-slate-500 font-normal">(${deal.flight_number})</span></h4>
+                        <p class="text-xs text-slate-500 mt-1">Departure: <strong>${deal.departure_time} IST</strong></p>
+                        
+                        <div class="mt-4 pt-4 border-t border-slate-100">
+                            <p class="text-xs text-slate-400">Base Fare: <span class="line-through text-slate-400">₹${deal.original_fare_per_seat.toLocaleString()}</span></p>
+                            <p class="text-xl font-extrabold text-blue-600 mt-0.5">₹${deal.discounted_fare_per_seat.toLocaleString()} <span class="text-xs font-normal text-slate-500">/ seat</span></p>
+                            <p class="text-xs text-emerald-600 font-medium mt-1">${data.concession_applied}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs text-slate-500">Total (${data.seats} Seats):</span>
+                            <p class="text-sm font-bold text-slate-900">₹${deal.total_trip_cost.toLocaleString()}</p>
+                        </div>
+                        <button onclick="bookFlightNow(${idx})" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow transition">
+                            Book Flight
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            container.classList.remove('hidden');
+            btn.innerHTML = `<span>🤖 Find Best AI Deals</span>`;
+            btn.disabled = false;
+        }
+
+        function bookFlightNow(index) {
+            if (!currentSearchResponse || !currentSearchResponse.all_deals[index]) return;
+            const deal = currentSearchResponse.all_deals[index];
+            const pnr = "AI" + Math.floor(100000 + Math.random() * 900000);
+
+            document.getElementById('modalPnr').innerText = pnr;
+            document.getElementById('modalFlight').innerText = `${deal.airline} (${deal.flight_number})`;
+            document.getElementById('modalRoute').innerText = currentSearchResponse.route;
+            document.getElementById('modalTime').innerText = `${document.getElementById('travelDate').value} @ ${deal.departure_time} IST`;
+            document.getElementById('modalCabin').innerText = currentSearchResponse.cabin_class;
+            document.getElementById('modalSeats').innerText = currentSearchResponse.seats;
+            document.getElementById('modalConcession').innerText = currentSearchResponse.concession_applied;
+            document.getElementById('modalTotal').innerText = `₹${deal.total_trip_cost.toLocaleString()}`;
+
+            document.getElementById('bookingModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+        }
+
+        async function initDashboard() {
+            await populateAirports();
+
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+
+            document.getElementById('cpi-index').innerText = data.cpi_index;
+            document.getElementById('inflation-tag').innerText = `▲ +${data.inflation_rate}% Surge`;
+            document.getElementById('spot-fare').innerText = `₹${data.spot_fare.toLocaleString()}`;
+            document.getElementById('base-fare').innerText = `₹${data.base_fare.toLocaleString()}`;
+            document.getElementById('records-count').innerText = data.total_records.toLocaleString();
+
+            const select = document.getElementById('route-select');
+            select.innerHTML = '';
+            data.routes.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.innerText = r;
+                select.appendChild(opt);
+            });
+
+            const ctxA = document.getElementById('airlineChart').getContext('2d');
+            airlineChartInstance = new Chart(ctxA, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.airline_avg),
+                    datasets: [{
+                        data: Object.values(data.airline_avg),
+                        backgroundColor: '#3B82F6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#F1F5F9' } },
+                        x: { ticks: { font: { size: 10 } }, grid: { display: false } }
+                    }
+                }
+            });
+
+            await updateRouteChart();
+            findBestDeals();
+        }
+
+        async function updateRouteChart() {
+            const selectedRoute = document.getElementById('route-select').value || 'DEL-BOM';
+            const res = await fetch(`/api/route-trend?route=${selectedRoute}`);
+            const data = await res.json();
+
+            const ctxR = document.getElementById('routeChart').getContext('2d');
+            if (routeChartInstance) routeChartInstance.destroy();
+
+            routeChartInstance = new Chart(ctxR, {
+                type: 'line',
+                data: {
+                    labels: data.days.map(d => `${d} Days Prior`),
+                    datasets: [{
+                        label: `Mean Fare (${selectedRoute})`,
+                        data: data.fares,
+                        borderColor: '#2563EB',
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#2563EB',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: '#F1F5F9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        window.onload = initDashboard;
+    </script>
+</body>
+</html>
